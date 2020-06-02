@@ -41,6 +41,11 @@ void
 replace_str_char(char* str, char to_replace, char new_char)
 {
   char* write = str;
+
+  // cleanly get rid of starting repalce char
+  if (*str == to_replace)
+    ++str;
+
   while (*str != '\0') {
     // take care of unwanted char
     if (*str == to_replace) {
@@ -52,6 +57,7 @@ replace_str_char(char* str, char to_replace, char new_char)
     }
     *(write++) = *(str++);
   }
+  *write = '\0';
 }
 
 /* opens process *cmd and stores output in *output */
