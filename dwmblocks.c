@@ -15,7 +15,7 @@ typedef struct
   unsigned int signal;
 } Block;
 void sighandler(int num);
-void remove_str_char(char* str, char c);
+void replace_str_char(char* str, char to_replace, char new_char);
 void getcmds(int time);
 #ifndef __OpenBSD__
 void getsigcmds(int signal);
@@ -29,26 +29,28 @@ void termhandler(int signum);
 
 #include "config.h"
 
-// static Display* dpy;
-static int screen;
-static Window root;
 static char statusbar[LENGTH(blocks)][CMDLENGTH] = { 0 };
 static char statusstr[2][256];
 static int statusContinue    = 1;
 static void (*writestatus)() = setroot;
 
+/* replaces all occurences of given char in string with the new one
+ * pass '\0' as new for char deletion
+ */
 void
-remove_str_char(char* str, char c)
+replace_str_char(char* str, char to_replace, char new_char)
 {
-  char* k = str;
   char* write = str;
   while (*str != '\0') {
-    if (*str == c) { // skip unwanted char
-      ++str;
-      *write = *str;
+    // take care of unwanted char
+    if (*str == to_replace) {
+      // delete char if it's a trailing new-line or we're told to delete it
+      if (new_char == '\0' || *(str + 1) == '\0')
+        ++str;
+      else
+        *str = new_char;
     }
-    ++str;
-    ++write;
+    *(write++) = *(str++);
   }
 }
 
@@ -66,11 +68,10 @@ getcmd(const Block* block, char* output)
   char c;
   int i = strlen(block->icon);
   strcpy(output, block->icon);
-  fgets(output + i, CMDLENGTH - i, cmdf);
-  /* fread(output + i, size_t __size, size_t __n, FILE *restrict __stream) */
-  /* remove_str_char(output, '\n'); */
+  fread(output + i, sizeof(char), CMDLENGTH - i, cmdf);
+  replace_str_char(output, '\n', ' ');
   i = strlen(output);
-  if (delim != '\0' && --i)
+  if (delim != '\0' && i)
     output[i++] = delim;
   output[i++] = '\0';
   pclose(cmdf);
@@ -137,8 +138,8 @@ setroot()
   if (!(dpy = XOpenDisplay(NULL)))
     return;
 
-  screen = DefaultScreen(dpy);
-  root   = RootWindow(dpy, screen);
+  int screen  = DefaultScreen(dpy);
+  Window root = RootWindow(dpy, screen);
   XStoreName(dpy, root, statusstr[0]);
   XCloseDisplay(dpy);
 }
