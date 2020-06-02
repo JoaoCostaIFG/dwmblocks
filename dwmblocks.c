@@ -44,7 +44,7 @@ replace_str_char(char* str, char to_replace, char new_char)
   while (*str != '\0') {
     // take care of unwanted char
     if (*str == to_replace) {
-      // delete char if it's a trailing new-line or we're told to delete it
+      // delete char if it's a trailing char or we're told to delete it
       if (new_char == '\0' || *(str + 1) == '\0')
         ++str;
       else
