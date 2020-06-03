@@ -5,8 +5,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#define LENGTH(X) (sizeof(X) / sizeof(X[0]))
-#define CMDLENGTH 40
+#define LENGTH(X)     (sizeof(X) / sizeof(X[0]))
+#define CMDLENGTH     40
 #define OVERWRITE_ENV 1
 
 typedef struct
@@ -77,10 +77,10 @@ getcmd(const Block* block, char* output)
   FILE* cmdf;
 
   if (*button) {
-    setenv("BUTTON", button, OVERWRITE_ENV);
+    setenv(DWMBLOCKS_ENV, button, OVERWRITE_ENV);
     cmdf    = popen(cmd, "r");
     *button = '\0';
-    unsetenv("BUTTON");
+    unsetenv(DWMBLOCKS_ENV);
   }
   else {
     cmdf = popen(cmd, "r");
