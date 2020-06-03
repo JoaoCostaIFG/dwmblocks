@@ -4,8 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
 #define LENGTH(X) (sizeof(X) / sizeof(X[0]))
-#define CMDLENGTH 40 // TODO this might be problematic (move to config ?)
+#define CMDLENGTH 40
+#define OVERWRITE_ENV 1
 
 typedef struct
 {
@@ -14,8 +16,9 @@ typedef struct
   unsigned int interval;
   unsigned int signal;
 } Block;
-void sighandler(int num);
 void replace_str_char(char* str, char to_replace, char new_char);
+void sighandler(int num);
+void buttonhandler(int sig, siginfo_t* si, void* ucontext);
 void getcmds(int time);
 #ifndef __OpenBSD__
 void getsigcmds(int signal);
@@ -33,6 +36,7 @@ static char statusbar[LENGTH(blocks)][CMDLENGTH] = { 0 };
 static char statusstr[2][256];
 static int statusContinue    = 1;
 static void (*writestatus)() = setroot;
+static char button[]         = "\0";
 
 /* replaces all occurences of given char in string with the new one
  * pass '\0' as new for char deletion
@@ -64,10 +68,25 @@ replace_str_char(char* str, char to_replace, char new_char)
 void
 getcmd(const Block* block, char* output)
 {
-  char* cmd  = block->command;
-  FILE* cmdf = popen(cmd, "r");
+  if (block->signal) { // prepend signal number if signal defined for cmd
+    output[0] = block->signal;
+    ++output;
+  }
+
+  char* cmd = block->command;
+  FILE* cmdf;
+
+  if (*button) {
+    setenv("BUTTON", button, OVERWRITE_ENV);
+    cmdf    = popen(cmd, "r");
+    *button = '\0';
+    unsetenv("BUTTON");
+  }
+  else {
+    cmdf = popen(cmd, "r");
+  }
   if (!cmdf) { // clear cmd if forking fails
-    sprintf(output, "%s--", block->icon);
+    sprintf(output, "%s --%c", block->icon, delim);
     return;
   }
 
@@ -109,17 +128,26 @@ getsigcmds(int signal)
 void
 setupsignals()
 {
-  struct sigaction sa;
-  sa.sa_handler = sighandler;
+  struct sigaction sa, button_sa;
   sigemptyset(&sa.sa_mask);
-  sa.sa_flags = SA_RESTART;
+  sigemptyset(&button_sa.sa_mask);
+
+  sa.sa_handler = sighandler;
+  sa.sa_flags   = SA_RESTART;
 
   for (int i = 0; i < LENGTH(blocks); i++) {
     if (blocks[i].signal <= 0)
       break;
+
+    // ignore signal when handling SIGUSR1
+    sigaddset(&button_sa.sa_mask, SIGRTMIN + blocks[i].signal);
     if (sigaction(SIGRTMIN + blocks[i].signal, &sa, NULL))
-      perror("Failed setting signal from config");
+      perror("Failed setting signal from config.");
   }
+
+  button_sa.sa_sigaction = buttonhandler;
+  button_sa.sa_flags     = SA_RESTART | SA_SIGINFO;
+  sigaction(SIGUSR1, &button_sa, NULL);
 }
 #endif
 
@@ -183,6 +211,14 @@ void
 sighandler(int signum)
 {
   getsigcmds(signum - SIGRTMIN);
+  writestatus();
+}
+
+void
+buttonhandler(int sig, siginfo_t* si, void* ucontext)
+{
+  *button = '0' + si->si_value.sival_int & 0xff;
+  getsigcmds(si->si_value.sival_int >> 8);
   writestatus();
 }
 #endif
