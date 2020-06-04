@@ -53,3 +53,4 @@ Mkfile.old
 dkms.conf
 
 **/.ccls-cache
+**/CS_SESSION

@@ -6,15 +6,17 @@
 #include <sys/fcntl.h>
 #include <unistd.h>
 
+#include "util.h"
+
 #define LENGTH(X)     (sizeof(X) / sizeof(X[0]))
 #define CMDLENGTH     40
 #define OVERWRITE_ENV 1
 
 // TODO
-// daemonize
 // explore sigaction SIGINFO
 // check if failed popen are ok
-// exit(1) -> die() func
+// check why clicking isn't perfect
+// check wy term with top hangs script
 
 typedef struct
 {
@@ -35,7 +37,7 @@ void sighandler(int signum);
 int getstatus(char* str, char* last);
 void setroot();
 void statusloop();
-void termhandler(int signum);
+static void terminate(const int signo);
 void daemonize();
 
 #include "config.h"
@@ -47,6 +49,21 @@ static int statusContinue      = 1;
 static void (*writestatus)()   = setroot;
 static const size_t blocks_len = LENGTH(blocks);
 static char button[]           = "\0";
+
+static void
+usage(void)
+{
+  die("usage: dwmblocks [-pb] [-d<c>]");
+}
+
+static void
+terminate(const int signo)
+{
+  if (statusContinue)
+    statusContinue = 0;
+  else
+    exit(1);
+}
 
 /* replaces all occurences of given char in string with the new one
  * pass '\0' as new for char deletion
@@ -176,10 +193,8 @@ setroot()
   if (!getstatus(statusstr[0], statusstr[1]))
     return;
 
-  if (XStoreName(dpy, DefaultRootWindow(dpy), statusstr[0]) < 0) {
-    perror("XStoreName: Allocation failed");
-    exit(1);
-  }
+  if (XStoreName(dpy, DefaultRootWindow(dpy), statusstr[0]) < 0)
+    die("XStoreName: Allocation failed");
   XFlush(dpy);
 }
 
@@ -212,10 +227,8 @@ statusloop()
 
   /* clear status on exit */
   XStoreName(dpy, DefaultRootWindow(dpy), NULL);
-  if (XCloseDisplay(dpy) < 0) {
-    perror("XCloseDisplay: Failed to close display");
-    exit(1);
-  }
+  if (XCloseDisplay(dpy) < 0)
+    die("XCloseDisplay: Failed to close display");
 }
 
 #ifndef __OpenBSD__
@@ -236,15 +249,6 @@ buttonhandler(int sig, siginfo_t* si, void* ucontext)
 #endif
 
 void
-termhandler(int signum)
-{
-  if (statusContinue)
-    statusContinue = 0;
-  else
-    exit(1);
-}
-
-void
 daemonize()
 {
   /*
@@ -256,8 +260,7 @@ daemonize()
   int pid = fork();
   switch (pid) {
     case -1:
-      perror("daemonize: first fork failed.");
-      exit(1);
+      die("daemonize: first fork failed.");
       break;
     case 0:
       break;
@@ -268,18 +271,15 @@ daemonize()
 
   /* setsid to detach from invoking command line/shell (fails if we're a session
    * leader) */
-  if (setsid() < 0) {
-    perror("daemonize: setsid failed.");
-    exit(1);
-  }
+  if (setsid() < 0)
+    die("daemonize: setsid failed.");
 
   /* second fork (grantee we're not the session leader so we can't require
      a controlling terminal) */
   pid = fork();
   switch (pid) {
     case -1:
-      perror("daemonize: second fork failed.");
-      exit(1);
+      die("daemonize: second fork failed.");
       break;
     case 0:
       break;
@@ -289,10 +289,8 @@ daemonize()
   }
 
   /* chdir to root so we don't keep a directory in use */
-  if (chdir("/") < 0) {
-    perror("daemonize: chdir to '/' failed.");
-    exit(1);
-  }
+  if (chdir("/") < 0)
+    die("daemonize: chdir to '/' failed.");
   /* optionally set umask(0) */
 
   /* close all open file descriptors (standard streams might suffice) */
@@ -308,34 +306,41 @@ int
 main(int argc, char** argv)
 {
   unsigned short int bg = 0;
-  for (int i = 0; i < argc; i++) {
-    if (!strcmp("-d", argv[i])) // -d set delimiter
-      delim = argv[++i][0];
-    else if (!strcmp("-p", argv[i])) // -p to print to stdout
+  ARGBEGIN
+  {
+    case 'd':
+      delim = (*argv)[++i];
+      break;
+    case 'p':
       writestatus = pstdout;
-    else if (!strcmp("-b", argv[i])) // -b to daemonize
+      break;
+    case 'b':
       bg = 1;
+      break;
+    default:
+      usage();
+      break;
   }
+  ARGEND
+	if (argc)
+		usage();
+
   if (bg)
     daemonize();
 
   /* termination handlers */
   struct sigaction sa;
-  sa.sa_handler = termhandler;
+  sa.sa_handler = terminate;
   sigemptyset(&sa.sa_mask);
   sigaddset(&sa.sa_mask, SIGINT);
   sigaddset(&sa.sa_mask, SIGTERM);
   sa.sa_flags = SA_RESTART;
-  if (sigaction(SIGINT, &sa, NULL) || sigaction(SIGTERM, &sa, NULL)) {
-    perror("Term signals setting failed");
-    exit(1);
-  }
+  if (sigaction(SIGINT, &sa, NULL) || sigaction(SIGTERM, &sa, NULL))
+    die("Term signals setting failed:");
 
   /* open display */
-  if (!(dpy = XOpenDisplay(NULL))) {
-    perror("XOpenDisplay: Failed to open display");
-    exit(1);
-  }
+  if (!(dpy = XOpenDisplay(NULL)))
+    die("XOpenDisplay: Failed to open display");
   statusloop();
 
   return 0;
