@@ -9,6 +9,12 @@
 #define CMDLENGTH     40
 #define OVERWRITE_ENV 1
 
+// TODO
+// daemonize
+// explore sigaction SIGINFO
+// check if failed popen are ok
+// exit(1) -> die() func
+
 typedef struct
 {
   char* icon;
@@ -35,9 +41,10 @@ void termhandler(int signum);
 static Display* dpy;
 static char statusbar[LENGTH(blocks)][CMDLENGTH] = { 0 };
 static char statusstr[2][256];
-static int statusContinue    = 1;
-static void (*writestatus)() = setroot;
-static char button[]         = "\0";
+static int statusContinue      = 1;
+static void (*writestatus)()   = setroot;
+static const size_t blocks_len = LENGTH(blocks);
+static char button[]           = "\0";
 
 /* replaces all occurences of given char in string with the new one
  * pass '\0' as new for char deletion
@@ -104,7 +111,7 @@ void
 getcmds(int time)
 {
   const Block* current;
-  for (int i = 0; i < LENGTH(blocks); ++i) {
+  for (int i = 0; i < blocks_len; ++i) {
     current = blocks + i;
     if ((current->interval != 0 && time % current->interval == 0) || time == -1)
       getcmd(current, statusbar[i]);
@@ -116,7 +123,7 @@ void
 getsigcmds(int signal)
 {
   const Block* current;
-  for (int i = 0; i < LENGTH(blocks); i++) {
+  for (int i = 0; i < blocks_len; i++) {
     current = blocks + i;
     if (current->signal == signal)
       getcmd(current, statusbar[i]);
@@ -133,7 +140,7 @@ setupsignals()
   sa.sa_handler = sighandler;
   sa.sa_flags   = SA_RESTART;
 
-  for (int i = 0; i < LENGTH(blocks); i++) {
+  for (int i = 0; i < blocks_len; i++) {
     if (blocks[i].signal <= 0)
       break;
 
@@ -154,7 +161,7 @@ getstatus(char* str, char* last)
 {
   strcpy(last, str);
   str[0] = '\0';
-  for (int i = 0; i < LENGTH(blocks); i++)
+  for (int i = 0; i < blocks_len; i++)
     strcat(str, statusbar[i]);
   str[strlen(str) - 1] = '\0';
   return strcmp(str, last); // 0 if they are the same
@@ -238,8 +245,9 @@ termhandler(int signum)
 int
 main(int argc, char** argv)
 {
-  for (int i = 0; i < argc; i++) { // -d set delimiter
-    if (!strcmp("-d", argv[i]))
+  unsigned short int bg = 0;
+  for (int i = 0; i < argc; i++) {
+    if (!strcmp("-d", argv[i])) // -d set delimiter
       delim = argv[++i][0];
     else if (!strcmp("-p", argv[i])) // -p to print to stdout
       writestatus = pstdout;
