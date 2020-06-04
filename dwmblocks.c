@@ -16,7 +16,7 @@
 // explore sigaction SIGINFO
 // check if failed popen are ok
 // check why clicking isn't perfect
-// check wy term with top hangs script
+// check why term with top hangs script
 
 typedef struct
 {
@@ -160,10 +160,9 @@ setupsignals()
   sa.sa_flags   = SA_RESTART;
 
   for (int i = 0; i < blocks_len; i++) {
-    if (blocks[i].signal <= 0)
+    if (blocks[i].signal <= 0) // unhandled sig
       break;
-
-    // ignore signal when handling SIGUSR1
+    // ignore other signals when handling SIGUSR1
     sigaddset(&button_sa.sa_mask, SIGRTMIN + blocks[i].signal);
     if (sigaction(SIGRTMIN + blocks[i].signal, &sa, NULL))
       perror("Failed setting signal from config.");
