@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/fcntl.h>
 #include <unistd.h>
 
 #define LENGTH(X)     (sizeof(X) / sizeof(X[0]))
@@ -35,6 +36,7 @@ int getstatus(char* str, char* last);
 void setroot();
 void statusloop();
 void termhandler(int signum);
+void daemonize();
 
 #include "config.h"
 
@@ -242,6 +244,66 @@ termhandler(int signum)
     exit(1);
 }
 
+void
+daemonize()
+{
+  /*
+   * Stevens' "Advanced Programming in the UNIX Environment" for details (ISBN
+   * 0201563177) http://www.erlenstar.demon.co.uk/unix/faq_2.html#SEC16
+   */
+
+  /* first fork (grantee that we're not a session leader) */
+  int pid = fork();
+  switch (pid) {
+    case -1:
+      perror("daemonize: first fork failed.");
+      exit(1);
+      break;
+    case 0:
+      break;
+    default:
+      _exit(0);
+      break;
+  }
+
+  /* setsid to detach from invoking command line/shell (fails if we're a session
+   * leader) */
+  if (setsid() < 0) {
+    perror("daemonize: setsid failed.");
+    exit(1);
+  }
+
+  /* second fork (grantee we're not the session leader so we can't require
+     a controlling terminal) */
+  pid = fork();
+  switch (pid) {
+    case -1:
+      perror("daemonize: second fork failed.");
+      exit(1);
+      break;
+    case 0:
+      break;
+    default:
+      _exit(0);
+      break;
+  }
+
+  /* chdir to root so we don't keep a directory in use */
+  if (chdir("/") < 0) {
+    perror("daemonize: chdir to '/' failed.");
+    exit(1);
+  }
+  /* optionally set umask(0) */
+
+  /* close all open file descriptors (standard streams might suffice) */
+  for (int fd = 3; fd < sysconf(_SC_OPEN_MAX); ++fd)
+    close(fd);
+  int devNull = open("/dev/null", O_RDWR);
+  dup2(devNull, STDIN_FILENO);
+  dup2(devNull, STDOUT_FILENO);
+  dup2(devNull, STDERR_FILENO);
+}
+
 int
 main(int argc, char** argv)
 {
@@ -251,16 +313,19 @@ main(int argc, char** argv)
       delim = argv[++i][0];
     else if (!strcmp("-p", argv[i])) // -p to print to stdout
       writestatus = pstdout;
+    else if (!strcmp("-b", argv[i])) // -b to daemonize
+      bg = 1;
   }
+  if (bg)
+    daemonize();
 
-  /* cleanup handler */
+  /* termination handlers */
   struct sigaction sa;
   sa.sa_handler = termhandler;
   sigemptyset(&sa.sa_mask);
   sigaddset(&sa.sa_mask, SIGINT);
   sigaddset(&sa.sa_mask, SIGTERM);
   sa.sa_flags = SA_RESTART;
-
   if (sigaction(SIGINT, &sa, NULL) || sigaction(SIGTERM, &sa, NULL)) {
     perror("Term signals setting failed");
     exit(1);
@@ -271,7 +336,6 @@ main(int argc, char** argv)
     perror("XOpenDisplay: Failed to open display");
     exit(1);
   }
-
   statusloop();
 
   return 0;
