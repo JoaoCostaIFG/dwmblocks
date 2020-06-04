@@ -15,6 +15,12 @@ introduce in this project has been slightly modified from the original.
 
 Credits for the original patches to: **Daniel Bylinka - daniel.bylinka@gmail.com**
 
+### Environment variable
+
+By default, the enviroment variable that is set for mouse button events is
+**DWMBLOCKS_BUTTON**. You can change this variable in _config.h_, but remember
+to also change it in your **dwm** build.
+
 ## Credits
 
 [Original](https://github.com/torrinfail/dwmblocks/) was written by
