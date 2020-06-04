@@ -32,6 +32,7 @@ void termhandler(int signum);
 
 #include "config.h"
 
+static Display* dpy;
 static char statusbar[LENGTH(blocks)][CMDLENGTH] = { 0 };
 static char statusstr[2][256];
 static int statusContinue    = 1;
@@ -165,14 +166,12 @@ setroot()
   // Only set root if text has changed.
   if (!getstatus(statusstr[0], statusstr[1]))
     return;
-  Display* dpy;
-  if (!(dpy = XOpenDisplay(NULL)))
-    return;
 
-  int screen  = DefaultScreen(dpy);
-  Window root = RootWindow(dpy, screen);
-  XStoreName(dpy, root, statusstr[0]);
-  XCloseDisplay(dpy);
+  if (XStoreName(dpy, DefaultRootWindow(dpy), statusstr[0]) < 0) {
+    perror("XStoreName: Allocation failed");
+    exit(1);
+  }
+  XFlush(dpy);
 }
 
 void
@@ -201,6 +200,13 @@ statusloop()
     sleep(1.0);
     ++i;
   }
+
+  /* clear status on exit */
+  XStoreName(dpy, DefaultRootWindow(dpy), NULL);
+  if (XCloseDisplay(dpy) < 0) {
+    perror("XCloseDisplay: Failed to close display");
+    exit(1);
+  }
 }
 
 #ifndef __OpenBSD__
@@ -223,8 +229,10 @@ buttonhandler(int sig, siginfo_t* si, void* ucontext)
 void
 termhandler(int signum)
 {
-  statusContinue = 0;
-  exit(0);
+  if (statusContinue)
+    statusContinue = 0;
+  else
+    exit(1);
 }
 
 int
@@ -237,7 +245,7 @@ main(int argc, char** argv)
       writestatus = pstdout;
   }
 
-  // cleanup handler
+  /* cleanup handler */
   struct sigaction sa;
   sa.sa_handler = termhandler;
   sigemptyset(&sa.sa_mask);
@@ -250,6 +258,13 @@ main(int argc, char** argv)
     exit(1);
   }
 
+  /* open display */
+  if (!(dpy = XOpenDisplay(NULL))) {
+    perror("XOpenDisplay: Failed to open display");
+    exit(1);
+  }
+
   statusloop();
-  exit(0);
+
+  return 0;
 }
