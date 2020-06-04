@@ -68,14 +68,12 @@ replace_str_char(char* str, char to_replace, char new_char)
 void
 getcmd(const Block* block, char* output)
 {
-  if (block->signal) { // prepend signal number if signal defined for cmd
-    output[0] = block->signal;
-    ++output;
-  }
+  if (block->signal) // prepend signal number if signal defined for cmd
+    *(output++) = block->signal;
+  strcpy(output, block->icon);
 
   char* cmd = block->command;
   FILE* cmdf;
-
   if (*button) {
     setenv(DWMBLOCKS_ENV, button, OVERWRITE_ENV);
     cmdf    = popen(cmd, "r");
@@ -85,20 +83,19 @@ getcmd(const Block* block, char* output)
   else {
     cmdf = popen(cmd, "r");
   }
-  if (!cmdf) { // clear cmd if forking fails
-    sprintf(output, "%s --%c", block->icon, delim);
+  if (!cmdf) // clear cmd if forking fails
     return;
-  }
 
-  char c;
-  int i = strlen(block->icon);
-  strcpy(output, block->icon);
-  fread(output + i, sizeof(char), CMDLENGTH - i, cmdf);
-  replace_str_char(output, '\n', ' ');
+  int i     = strlen(block->icon);
+  int n     = fread(output + i, sizeof(char), CMDLENGTH - i, cmdf);
+  output[n] = '\0'; // NULL terminate read bytes
+  replace_str_char(output, '\n', replaceNewLineChar);
+
   i = strlen(output);
   if (delim != '\0' && i)
     output[i++] = delim;
   output[i++] = '\0';
+
   pclose(cmdf);
 }
 
