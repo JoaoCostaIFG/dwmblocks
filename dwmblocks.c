@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/fcntl.h>
 #include <unistd.h>
 
 #include "util.h"
@@ -25,7 +24,7 @@ typedef struct
   unsigned int interval;
   unsigned int signal;
 } Block;
-void replace_str_char(char* str, char to_replace, char new_char);
+size_t replace_str_char(char* str, char to_replace, char new_char);
 void sighandler(int num);
 void buttonhandler(int sig, siginfo_t* si, void* ucontext);
 void getcmds(int time);
@@ -66,9 +65,9 @@ terminate(const int signo)
 }
 
 /* replaces all occurences of given char in string with the new one
- * pass '\0' as new for char deletion
+ * pass '\0' as new for char deletion. Return new str size.
  */
-void
+size_t
 replace_str_char(char* str, char to_replace, char new_char)
 {
   char* write = str;
@@ -77,18 +76,24 @@ replace_str_char(char* str, char to_replace, char new_char)
   if (*str == to_replace)
     ++str;
 
+  size_t size = 0;
   while (*str != '\0') {
     // take care of unwanted char
     if (*str == to_replace) {
       // delete char if it's a trailing char or we're told to delete it
-      if (new_char == '\0' || *(str + 1) == '\0')
+      if (*(str + 1) == '\0')
+        break;
+      else if (new_char == '\0')
         ++str;
       else
         *str = new_char;
     }
     *(write++) = *(str++);
+    ++size;
   }
+
   *write = '\0';
+  return size;
 }
 
 /* opens process *cmd and stores output in *output */
@@ -110,18 +115,18 @@ getcmd(const Block* block, char* output)
   else {
     cmdf = popen(cmd, "r");
   }
-  if (!cmdf) // clear cmd if forking fails
+  if (!cmdf) // fork/pipe failed
     return;
 
-  int i     = strlen(block->icon);
-  int n     = fread(output + i, sizeof(char), CMDLENGTH - i, cmdf);
-  output[n] = '\0'; // NULL terminate read bytes
-  replace_str_char(output, '\n', replaceNewLineChar);
+  int i = strlen(block->icon);
+  i += fread(output + i, sizeof(char), CMDLENGTH - i, cmdf);
+  output[i] = '\0'; // NULL terminate read bytes
 
-  i = strlen(output);
-  if (delim != '\0' && i)
+  i = replace_str_char(output, '\n', replaceNewLineChar);
+  if (delim != '\0' && i) {
     output[i++] = delim;
-  output[i++] = '\0';
+    output[i]   = '\0';
+  }
 
   pclose(cmdf);
 }
@@ -247,63 +252,14 @@ buttonhandler(int sig, siginfo_t* si, void* ucontext)
 }
 #endif
 
-void
-daemonize()
-{
-  /*
-   * Stevens' "Advanced Programming in the UNIX Environment" for details (ISBN
-   * 0201563177) http://www.erlenstar.demon.co.uk/unix/faq_2.html#SEC16
-   */
-
-  /* first fork (grantee that we're not a session leader) */
-  int pid = fork();
-  switch (pid) {
-    case -1:
-      die("daemonize: first fork failed.");
-      break;
-    case 0:
-      break;
-    default:
-      _exit(0);
-      break;
-  }
-
-  /* setsid to detach from invoking command line/shell (fails if we're a session
-   * leader) */
-  if (setsid() < 0)
-    die("daemonize: setsid failed.");
-
-  /* second fork (grantee we're not the session leader so we can't require
-     a controlling terminal) */
-  pid = fork();
-  switch (pid) {
-    case -1:
-      die("daemonize: second fork failed.");
-      break;
-    case 0:
-      break;
-    default:
-      _exit(0);
-      break;
-  }
-
-  /* chdir to root so we don't keep a directory in use */
-  if (chdir("/") < 0)
-    die("daemonize: chdir to '/' failed.");
-  /* optionally set umask(0) */
-
-  /* close all open file descriptors (standard streams might suffice) */
-  for (int fd = 3; fd < sysconf(_SC_OPEN_MAX); ++fd)
-    close(fd);
-  int devNull = open("/dev/null", O_RDWR);
-  dup2(devNull, STDIN_FILENO);
-  dup2(devNull, STDOUT_FILENO);
-  dup2(devNull, STDERR_FILENO);
-}
-
 int
 main(int argc, char** argv)
 {
+  /*
+   * -d sets the field delimiter
+   * -p printf to stdout
+   * -b daemonizes process
+   */
   unsigned short int bg = 0;
   ARGBEGIN
   {
@@ -321,8 +277,8 @@ main(int argc, char** argv)
       break;
   }
   ARGEND
-	if (argc)
-		usage();
+  if (argc)
+    usage();
 
   if (bg)
     daemonize();

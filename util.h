@@ -19,4 +19,6 @@ void warn(const char* fmt, ...);
 
 void die(const char* fmt, ...);
 
+void daemonize();
+
 #endif // UTIL_H
