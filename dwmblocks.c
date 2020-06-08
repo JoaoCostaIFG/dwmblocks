@@ -246,7 +246,7 @@ sighandler(int signum)
 void
 buttonhandler(int sig, siginfo_t* si, void* ucontext)
 {
-  *button = '0' + si->si_value.sival_int & 0xff;
+  *button = ('0' + si->si_value.sival_int) & 0xff;
   getsigcmds(si->si_value.sival_int >> 8);
   writestatus();
 }

@@ -9,10 +9,10 @@ static const Block blocks[] = {
   { "",       "cpu",      120,                    1 },
   { "",       "volume",   0,                      2 },
   { "",       "clock",    30,                     3 },
-  { "♥",      "",         0,                      4 },
+  { "♥",      "heart",    0,                      4 },
 };
 
 // sets delimeter between status commands. NULL character ('\0') means no
 // delimeter.
-static char delim = '|';
+static char delim = ' ';
 static char replaceNewLineChar = ' '; // '\0' for deletion
