@@ -224,7 +224,7 @@ statusloop()
   }
 
   /* delete PID file */
-  unlink(PIDFILEPATH);
+  unlink(DWMBLOCKS_PIDFILEPATH);
   /* clear status on exit */
   XStoreName(dpy, DefaultRootWindow(dpy), NULL);
   if (XCloseDisplay(dpy) < 0)
@@ -277,7 +277,7 @@ main(int argc, char** argv)
     usage();
 
   if (bg)
-    daemonize(PIDFILEPATH);
+    daemonize(DWMBLOCKS_PIDFILEPATH);
 
   /* termination handlers */
   struct sigaction sa;
