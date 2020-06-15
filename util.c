@@ -1,10 +1,10 @@
 #include <errno.h>
+#include <fcntl.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
 #include <unistd.h>
-#include <fcntl.h>
 
 #include "util.h"
 
@@ -45,7 +45,39 @@ die(const char* fmt, ...)
 }
 
 void
-daemonize()
+writepidfile(char* pidfile)
+{
+  if (!pidfile)
+    return;
+
+  char buf[16];
+  int fd;
+  if ((fd = open(pidfile, O_CREAT | O_WRONLY | O_EXCL, 0640)) < 0) {
+    if (errno == EEXIST) {
+      /* check if other daemon is still running */
+      char cmd[40];
+      snprintf(cmd, 40, "pidof -s -o %d dwmblocks", getpid());
+      FILE* fp = popen(cmd, "r");
+      fgets(buf, sizeof(buf), fp);
+      pid_t pid = strtoul(buf, NULL, 10);
+      pclose(fp);
+
+      if (pid != 0) // fail if there is a daemon already running
+        die("writepidfile: There is a dwmblocks daemon currently running.");
+
+      if ((fd = open(pidfile, O_CREAT | O_WRONLY | O_TRUNC, 0640)) < 0)
+        die("writepidfile:");
+    }
+    else // don't care if we fail writing
+      return;
+  }
+
+  snprintf(buf, 16, "%d", getpid());
+  write(fd, buf, strlen(buf));
+}
+
+void
+daemonize(char* pidfile)
 {
   /*
    * Stevens' "Advanced Programming in the UNIX Environment" for details (ISBN
@@ -88,6 +120,9 @@ daemonize()
   if (chdir("/") < 0)
     die("daemonize: chdir to '/' failed.");
   /* optionally set umask(0) */
+
+  /* create pid file */
+  writepidfile(pidfile);
 
   /* close all open file descriptors (standard streams might suffice) */
   for (int fd = 3; fd < sysconf(_SC_OPEN_MAX); ++fd)

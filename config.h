@@ -3,6 +3,7 @@
 
 /* name of the environment variable that will be set on button input */
 #define DWMBLOCKS_ENV "DWMBLOCKS_BUTTON"
+#define PIDFILEPATH "/tmp/dwmblocks.pid"
 
 static const Block blocks[] = {
   /*Icon*/  /*Command*/ /*Update Interval (s)*/ /*Update Signal*/

@@ -11,12 +11,6 @@
 #define CMDLENGTH     40
 #define OVERWRITE_ENV 1
 
-// TODO
-// explore sigaction SIGINFO
-// check if failed popen are ok
-// check why clicking isn't perfect
-// check why term with top hangs script
-
 typedef struct
 {
   char* icon;
@@ -281,7 +275,7 @@ main(int argc, char** argv)
     usage();
 
   if (bg)
-    daemonize();
+    daemonize(PIDFILEPATH);
 
   /* termination handlers */
   struct sigaction sa;
@@ -295,7 +289,7 @@ main(int argc, char** argv)
 
   /* open display */
   if (!(dpy = XOpenDisplay(NULL)))
-    die("XOpenDisplay: Failed to open display");
+    die("XOpenDisplay: Failed to open display.");
   statusloop();
 
   return 0;
