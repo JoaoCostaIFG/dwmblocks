@@ -47,8 +47,8 @@ die(const char* fmt, ...)
 void
 writepidfile(char* pidfile)
 {
-  if (!pidfile)
-    return;
+  /* if (!pidfile) */
+    /* return; */
 
   char buf[16];
   int fd;

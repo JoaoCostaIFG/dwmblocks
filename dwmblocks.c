@@ -66,7 +66,7 @@ replace_str_char(char* str, char to_replace, char new_char)
 {
   char* write = str;
 
-  // cleanly get rid of starting repalce char
+  // get rid of starting repalce char
   if (*str == to_replace)
     ++str;
 
@@ -223,6 +223,8 @@ statusloop()
     ++i;
   }
 
+  /* delete PID file */
+  unlink(PIDFILEPATH);
   /* clear status on exit */
   XStoreName(dpy, DefaultRootWindow(dpy), NULL);
   if (XCloseDisplay(dpy) < 0)
