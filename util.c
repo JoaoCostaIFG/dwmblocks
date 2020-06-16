@@ -44,36 +44,68 @@ die(const char* fmt, ...)
   exit(1);
 }
 
+pid_t
+getdaemonpidof()
+{
+  /* check if other daemon is still running (despite file) */
+  char cmd[40];
+  snprintf(cmd, 40, "pidof -s -o %d dwmblocks", getpid());
+
+  pid_t pid = 0;
+  char buf[16];
+  FILE* fp;
+  if ((fp = popen(cmd, "r"))) {
+    fgets(buf, sizeof(buf), fp);
+    pid = strtoul(buf, NULL, 10);
+    pclose(fp);
+  }
+  else
+    die("getdaemonpidof:");
+
+  return pid;
+}
+
+pid_t
+getdaemonpid(char* pidfile)
+{
+  pid_t pid = 0;
+  char buf[16];
+  FILE* fp;
+  if ((fp = fopen(pidfile, "r"))) { // try to find dwmblocks pid file
+    fgets(buf, sizeof(buf), fp);
+    pid = strtoul(buf, NULL, 10);
+    fclose(fp);
+  }
+  else { // try to find a rogue process
+    pid = getdaemonpidof();
+    /* attempt to write found pid to file (which is missing) */
+    if ((fp = fopen(pidfile, "a"))) {
+      fprintf(fp, "%d", pid);
+      fclose(fp);
+    }
+  }
+
+  return pid;
+}
+
 void
 writepidfile(char* pidfile)
 {
-  /* if (!pidfile) */
-    /* return; */
-
   char buf[16];
-  int fd;
-  if ((fd = open(pidfile, O_CREAT | O_WRONLY | O_EXCL, 0640)) < 0) {
+  int fd = open(pidfile, O_CREAT | O_WRONLY | O_EXCL, 0640);
+  if (fd < 0) {
     if (errno == EEXIST) {
-      /* check if other daemon is still running */
-      char cmd[40];
-      snprintf(cmd, 40, "pidof -s -o %d dwmblocks", getpid());
-      FILE* fp = popen(cmd, "r");
-      fgets(buf, sizeof(buf), fp);
-      pid_t pid = strtoul(buf, NULL, 10);
-      pclose(fp);
-
-      if (pid != 0) // fail if there is a daemon already running
+      if (getdaemonpidof() != 0) // fail if there is a daemon already running
         die("writepidfile: There is a dwmblocks daemon currently running.");
-
+      // reopen file (info is old/useless)
       if ((fd = open(pidfile, O_CREAT | O_WRONLY | O_TRUNC, 0640)) < 0)
         die("writepidfile:");
     }
-    else // don't care if we fail writing
-      return;
   }
 
   snprintf(buf, 16, "%d", getpid());
   write(fd, buf, strlen(buf));
+  close(fd);
 }
 
 void

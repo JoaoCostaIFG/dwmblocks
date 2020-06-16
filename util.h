@@ -1,6 +1,8 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <sys/types.h>
+
 #define ARGBEGIN                                 \
   for (*argv ? (--argc, ++argv) : (void*)0;      \
        *argv && (*argv)[0] == '-' && (*argv)[1]; \
@@ -18,6 +20,8 @@
 void warn(const char* fmt, ...);
 
 void die(const char* fmt, ...);
+
+pid_t getdaemonpid();
 
 void daemonize();
 

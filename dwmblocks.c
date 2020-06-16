@@ -11,6 +11,9 @@
 #define CMDLENGTH     40
 #define OVERWRITE_ENV 1
 
+// TODO
+// If sig is 0, all fields shall be updated
+
 typedef struct
 {
   char* icon;
@@ -46,7 +49,7 @@ static char button[]           = "\0";
 static void
 usage(void)
 {
-  die("usage: dwmblocks [-pb] [-d<c>]");
+  die("usage: dwmblocks [-pb] [-d<c>] [-S<i>]");
 }
 
 static void
@@ -252,21 +255,28 @@ int
 main(int argc, char** argv)
 {
   /*
+   * -b daemonizes process
    * -d sets the field delimiter
    * -p printf to stdout
-   * -b daemonizes process
+   * -s send signal to running daemon
    */
   unsigned short int bg = 0;
+  int s                 = 0;
   ARGBEGIN
   {
+    case 'b':
+      bg = 1;
+      break;
     case 'd':
       delim = (*argv)[++i];
       break;
     case 'p':
       writestatus = pstdout;
       break;
-    case 'b':
-      bg = 1;
+    case 's':
+      s = strtol((*argv) + i + 1, NULL, 10);
+      for (; (*argv)[i + 1]; ++i) {
+      }
       break;
     default:
       usage();
@@ -275,6 +285,16 @@ main(int argc, char** argv)
   ARGEND
   if (argc)
     usage();
+
+  if (s) { // signal daemon and quit
+    pid_t daemonpid;
+    if ((daemonpid = getdaemonpid(DWMBLOCKS_PIDFILEPATH)))
+      kill(daemonpid, SIGRTMIN + s);
+    else
+      die("dwmblocks: Couldn't find a running deamon.");
+
+    exit(0);
+  }
 
   if (bg)
     daemonize(DWMBLOCKS_PIDFILEPATH);
