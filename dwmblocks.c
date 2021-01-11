@@ -257,11 +257,12 @@ main(int argc, char** argv)
   /*
    * -b daemonizes process
    * -d sets the field delimiter
+   * -k kills a running daemon
    * -p printf to stdout
    * -s send signal to running daemon
    */
-  unsigned short int bg = 0;
-  int s                 = 0;
+  unsigned short int bg = 0, k = 0;
+  int s = 0;
   ARGBEGIN
   {
     case 'b':
@@ -269,6 +270,9 @@ main(int argc, char** argv)
       break;
     case 'd':
       delim = (*argv)[++i];
+      break;
+    case 'k':
+      k = 1;
       break;
     case 'p':
       writestatus = pstdout;
@@ -286,13 +290,15 @@ main(int argc, char** argv)
   if (argc)
     usage();
 
-  if (s) { // signal daemon and quit
-    pid_t daemonpid;
-    if ((daemonpid = getdaemonpid(DWMBLOCKS_PIDFILEPATH)))
-      kill(daemonpid, SIGRTMIN + s);
-    else
+  if (s || k) { // signal daemon and quit
+    pid_t daemonpid = getdaemonpid(DWMBLOCKS_PIDFILEPATH);
+    if (!daemonpid)
       die("dwmblocks: Couldn't find a running deamon.");
 
+    if (k)
+      kill(daemonpid, SIGTERM);
+    else // s
+      kill(daemonpid, SIGRTMIN + s);
     exit(0);
   }
 

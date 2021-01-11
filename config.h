@@ -7,7 +7,7 @@
 
 static const Block blocks[] = {
   /*Icon*/  /*Command*/ /*Update Interval (s)*/ /*Update Signal*/
-  { "",       "cpu",      120,                    1 },
+  { "",       "temps",    60,                     1 },
   { "",       "volume",   0,                      2 },
   { "",       "clock",    30,                     3 },
   { "♥",      "heart",    0,                      4 },
