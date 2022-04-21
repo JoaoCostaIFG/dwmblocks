@@ -6,11 +6,11 @@
 #define DWMBLOCKS_PIDFILEPATH "/tmp/dwmblocks.pid"
 
 static const Block blocks[] = {
-  /*Icon*/  /*Command*/ /*Update Interval (s)*/ /*Update Signal*/
-  { "",       "temps",    60,                     1 },
-  { "",       "volume",   0,                      2 },
-  { "",       "clock",    30,                     3 },
-  { "♥",      "heart",    0,                      4 },
+  /*Icon*/  /*Command*/       /*Update Interval (s)*/ /*Update Signal*/
+  { "",       "dwmb-temps",     60,                     1 },
+  { "",       "dwmb-volume",    0,                      2 },
+  { "",       "dwmb-clock",     30,                     3 },
+  { "♥",      "dwmb-heart",     0,                      4 },
 };
 
 // sets delimeter between status commands. NULL character ('\0') means no
