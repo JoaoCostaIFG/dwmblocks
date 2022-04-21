@@ -7,6 +7,7 @@
 
 static const Block blocks[] = {
   /*Icon*/  /*Command*/       /*Update Interval (s)*/ /*Update Signal*/
+  { "",       "dwmb-bat",       60,                     5 },
   { "",       "dwmb-temps",     60,                     1 },
   { "",       "dwmb-volume",    0,                      2 },
   { "",       "dwmb-clock",     30,                     3 },
